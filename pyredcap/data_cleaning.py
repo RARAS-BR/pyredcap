@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame, Index
 
-from src.handlers.transformer_handler import TransformerHandler
+from pyredcap.handlers.transformer_handler import TransformerHandler
 
 
 class DataCleaning:

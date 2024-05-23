@@ -5,7 +5,7 @@ import json
 import pandas as pd
 import requests
 from pandas import DataFrame
-from handlers.api_handler import APIHandler
+from pyredcap.handlers.api_handler import APIHandler
 
 
 class MetadataHandler:

@@ -8,7 +8,7 @@ import numpy as np
 from pandas import DataFrame, Series
 
 from pyredcap.redcap_project import REDCapProject
-from src.handlers.transformer_handler import TransformerHandler
+from pyredcap.handlers.transformer_handler import TransformerHandler
 
 
 class Preprocessing:

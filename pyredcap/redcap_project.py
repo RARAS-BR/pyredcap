@@ -11,8 +11,8 @@ import requests
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-from src.handlers.api_handler import APIHandler
-from src.handlers.metadata_handler import MetadataHandler
+from pyredcap.handlers.api_handler import APIHandler
+from pyredcap.handlers.metadata_handler import MetadataHandler
 
 
 class REDCapProject:
