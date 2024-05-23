@@ -1,0 +1,10 @@
+[FORMAT]
+max-line-length=120
+
+[DESIGN]
+max-attributes=18
+max-locals=18
+max-args=18
+
+[MESSAGES CONTROL]
+disable=missing-module-docstring,C0121
