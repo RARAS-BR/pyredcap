@@ -119,10 +119,56 @@ class REDCapProject:
         self._instance_codebook()
         self._instance_identifier_fields()
         self._instance_raw_label_map()
+        self._instance_branching_logic_tree()
 
         logging.info('Project ID: %s', self.project_id)
         logging.info('Project Title: %s', self.project_title)
         logging.info('Data Access Groups (n): %s\n', self.dag.shape[0])
+
+    def preprocess_forms(self, instructions: dict = None) -> None:
+        """
+        Preprocess forms according to the provided instructions.
+
+        Parameters
+        ----------
+        instructions : dict, optional
+            A dictionary of preprocessing instructions (default is None).
+        """
+        from pyredcap import Preprocessing
+
+        if instructions:
+            preprocessing = Preprocessing(self, instructions)
+        else:
+            preprocessing = Preprocessing(self)
+            preprocessing.remove_missing_datacodes()
+            preprocessing.decode_checkbox()
+            preprocessing.subset_forms()
+
+        self.update_forms(preprocessing.forms)
+        self.update_feature_map(preprocessing.feature_map)
+        self.update_outliers(preprocessing.outliers)
+
+    def clean_data(self, instructions: dict) -> None:
+        """
+        Clean data according to the provided instructions.
+
+        Parameters
+        ----------
+        instructions : dict
+            A dictionary of data cleaning instructions.
+        """
+        from pyredcap import DataCleaning
+
+        for form_name, form_instructions in instructions.items():
+            logging.info('Data cleaning on form: %s', form_name)
+            data_cleaning = DataCleaning(
+                form_name=form_name,
+                df=self.forms[form_name],
+                metadata=self.get_metadata(),
+                instructions=form_instructions
+            )
+            self.update_forms({form_name: data_cleaning.df})
+            self.update_outliers(data_cleaning.outliers)
 
     def _instance_dag(self):
         self.dag = self.mh.load_metadata('dag')
