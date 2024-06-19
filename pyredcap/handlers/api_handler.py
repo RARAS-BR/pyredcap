@@ -50,7 +50,7 @@ class APIHandler:
         payload.update(params)
 
         # Make request
-        response = requests.post(self.api_url, data=payload, timeout=30, verify=True)
+        response = requests.post(self.api_url, data=payload, timeout=300, verify=True)
         logging.info('HTTP Status: %s', response.status_code)
 
         return response
