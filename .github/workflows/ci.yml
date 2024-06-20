@@ -25,6 +25,10 @@ jobs:
       - name: Run integration tests
         env:
           API_URL: ${{ secrets.API_URL }}
-          API_TOKEN: ${{ secrets.API_TOKEN }}
+          TOKEN_PROSPECTIVO_2023: ${{ secrets.TOKEN_PROSPECTIVO_2023 }}
+          TOKEN_PROSPECTIVO_2022: ${{ secrets.TOKEN_PROSPECTIVO_2022 }}
+          TOKEN_RETROSPECTIVO: ${{ secrets.TOKEN_RETROSPECTIVO }}
+          TOKEN_JAV: ${{ secrets.TOKEN_JAV }}
+          TOKEN_ADMIN: ${{ secrets.TOKEN_ADMIN }}
         run: |
           pytest tests/
