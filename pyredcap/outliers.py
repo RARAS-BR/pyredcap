@@ -5,22 +5,51 @@ import numpy as np
 import pandas as pd
 from pandas import DataFrame
 
+from pyredcap.handlers.transformer_handler import TransformerHandler
+from pyredcap.redcap_project import REDCapProject
+
+
+# pylint: disable=too-few-public-methods
+class CustomRulesBase:
+    """
+    This is a base class for custom rules. It initializes the forms, codebook, and TransformerHandler.
+    """
+
+    def __init__(self, redcap_project: REDCapProject):
+        self.forms: dict[str, pd.DataFrame] = redcap_project.forms
+        self.codebook: pd.DataFrame = redcap_project.codebook
+        self.th = TransformerHandler()
+
+    # @classmethod
+    # def custom_rule(cls, func: callable) -> callable:
+    #     setattr(cls, func.__name__, func)
+    #     func.is_custom_rule = True
+    #     return func
+
 
 class Outliers:
+    """
+    This class is responsible for detecting and handling outliers in the REDCap project data.
+    It initializes the forms, codebook, validation dataframe, and TransformerHandler.
+    It also provides methods to check for required fields, validate data types and ranges,
+    and apply custom outlier detection rules.
+    """
 
     def __init__(
             self,
-            forms: dict[str, DataFrame],
-            codebook: DataFrame
+            redcap_project: REDCapProject,
+            custom_rules=None
     ):
-        self.forms = forms
+        self.forms: dict[str, DataFrame] = redcap_project.forms
+        self.codebook: DataFrame = redcap_project.codebook
         self.validation_df = None
+        self.custom_rules = custom_rules
         self.cols_to_validate: dict = {}
         self.outliers_df = pd.DataFrame(
             columns=['record_id', 'redcap_data_access_group',
                      'redcap_repeat_instance', 'field_name', 'current_value',
                      'form_status', 'reason'])
-        self._instance_validation_df(codebook)
+        self.th = TransformerHandler()
 
     @staticmethod
     def _fix_min_max_dtype(
@@ -95,46 +124,27 @@ class Outliers:
         # Rename modified columns
         self.validation_df['field_name'] = self.validation_df['field_name'].replace({'ss_1': 'sintomas'})
 
-    def update_outliers_df(self, outliers: DataFrame) -> None:
-        if not outliers.empty:
-            self.outliers_df = pd.concat([self.outliers_df, outliers], ignore_index=True)
-
-    def check_required_fields(self, column: str) -> list:
-        if 'redcap_repeat_instance' in self.validation_df.columns:
-            return (self.validation_df.loc[self.validation_df[column].isna(), ['record_id', 'redcap_repeat_instance']]
-                    .apply(tuple, axis=1).tolist())
-        return self.validation_df.loc[self.validation_df[column].isna(), 'record_id'].tolist()
-
-    def process_invalid_records(
+    def update_outliers_df(
             self,
             df: DataFrame,
             column: str,
             invalid_records: list[str] | list[tuple[str, int]],
             reason_desc: str
     ) -> None:
-        if not invalid_records:
-            return None
+        # Process invalid records into the outliers data frame
+        outliers = self.th.process_invalid_records(df, column, invalid_records, reason_desc)
+        # Check if both data frames are not empty
+        if not self.outliers_df.empty and not outliers.empty:
+            self.outliers_df = pd.concat([self.outliers_df, outliers], ignore_index=True)
+        # First update, assign data instead of concat to avoid error
+        elif not outliers.empty:
+            self.outliers_df = outliers
 
-        # Check if list is with str
-        if isinstance(invalid_records[0], str):
-            invalid_record_mask = df['record_id'].isin(invalid_records)
-        else:
-            invalid_record_mask = df[['record_id', 'redcap_repeat_instance']].apply(tuple, axis=1).isin(invalid_records)
-
-        complete_column: str = df.filter(regex='_complete$').columns[-1]
-        cols_subset: list = ['record_id', 'redcap_data_access_group', 'redcap_repeat_instance',
-                             column, complete_column]
-        if 'redcap_repeat_instance' not in df.columns:
-            df['redcap_repeat_instance'] = np.nan
-
-        form_outliers: DataFrame = df[invalid_record_mask][cols_subset]
-        form_outliers['field_name'] = column
-        form_outliers['reason'] = reason_desc
-        form_outliers.rename(columns={column: 'current_value'}, inplace=True)
-        form_outliers.rename(columns={complete_column: 'form_status'}, inplace=True)
-
-        logging.info('Field %s: extracted %s invalid records', column, len(invalid_records))
-        self.update_outliers_df(form_outliers)
+    def check_required_fields(self, column: str) -> list:
+        if 'redcap_repeat_instance' in self.validation_df.columns:
+            return (self.validation_df.loc[self.validation_df[column].isna(), ['record_id', 'redcap_repeat_instance']]
+                    .apply(tuple, axis=1).tolist())
+        return self.validation_df.loc[self.validation_df[column].isna(), 'record_id'].tolist()
 
     def check_dtype(
             self,
@@ -156,8 +166,7 @@ class Outliers:
         invalid_records = df.loc[~is_valid_type, 'record_id'].tolist()
 
         if invalid_records:
-            self.process_invalid_records(df, column, invalid_records,
-                                         f'Invalid data type ({data_type})')
+            self.update_outliers_df(df, column, invalid_records, f'Dado inválido ({data_type})')
 
     def check_range(
             self,
@@ -167,33 +176,51 @@ class Outliers:
             min_value: str = None,
             max_value: str = None
     ) -> None:
-        # Check if at least one of the values is not NaN
-        if pd.notna(min_value) or pd.notna(max_value):
-            if data_type == 'numeric':
-                series = pd.to_numeric(df[column], errors='coerce').dropna()
-            elif data_type == 'date':
-                series = pd.to_datetime(df[column], errors='coerce').dropna()
-            else:
-                raise ValueError("data_type must be either 'numeric' or 'date'")
 
-            if pd.notna(min_value) and pd.notna(max_value):
-                mask = series.between(min_value, max_value)
-            elif pd.notna(min_value):
-                mask = series >= min_value
-            elif pd.notna(max_value):
-                mask = series <= max_value
-            else:
-                raise ValueError('No range provided')
+        if data_type == 'numeric':
+            series = pd.to_numeric(df[column], errors='coerce').dropna()
+        elif data_type == 'date':
+            series = pd.to_datetime(df[column], errors='coerce').dropna()
+        else:
+            raise ValueError("data_type must be either 'numeric' or 'date'")
 
-            # Reindex with True values
-            mask = mask.reindex(df.index, fill_value=True)
+        if pd.notna(min_value) and pd.notna(max_value):
+            mask = series.between(min_value, max_value)
+            reason_desc = f'min: {min_value}, max: {max_value}'
+        elif pd.notna(min_value):
+            mask = series >= min_value
+            reason_desc = f'min: {min_value}'
+        elif pd.notna(max_value):
+            mask = series <= max_value
+            reason_desc = f'max: {max_value}'
+        else:
+            # No range to validate
+            return None
 
-            invalid_records = df.loc[~mask, 'record_id'].tolist()
-            if invalid_records:
-                self.process_invalid_records(df, column, invalid_records,
-                                             f'Value outside of range ({data_type})')
+        # Reindex with True values
+        mask = mask.reindex(df.index, fill_value=True)
+
+        invalid_records = df.loc[~mask, 'record_id'].tolist()
+        if invalid_records:
+            self.update_outliers_df(df, column, invalid_records,
+                                    f'Valor fora do intervalo permitido ({reason_desc})')
+
+    def custom_outliers(self):
+        custom_methods = [method for method in dir(self.custom_rules)
+                          if callable(getattr(self.custom_rules, method))
+                          and not method.startswith("__")]
+        for method in custom_methods:
+            method_result: dict = getattr(self.custom_rules, method)()
+
+            assert all(key in method_result for key in ['df', 'column', 'invalid_records', 'reason_desc']), \
+                "Method return must have all and only the following keys: df, column, invalid_records, reason_desc"
+            if method_result['invalid_records']:
+                self.update_outliers_df(**method_result)
 
     def generate_outliers(self, filter_incomplete: bool = True) -> None:
+
+        # Create validation data frame
+        self._instance_validation_df(self.codebook)
 
         # General outlier detection
         for form_name, form in self.forms.items():
@@ -211,8 +238,9 @@ class Outliers:
                     self.check_dtype(form, column, 'date')
                     self.check_range(form, column, 'date', field_info['min'], field_info['max'])
 
-        # CUSTOM OUTLIER DETECTIONS GO HERE
-        # self.custom_diag_comorb_cid()
+        # Check for custom user defined rules
+        if self.custom_rules:
+            self.custom_outliers()
 
         # Format data frame and filter incomplete records
         self.outliers_df['form_status'] = self.outliers_df['form_status'].replace({
@@ -227,27 +255,5 @@ class Outliers:
         if filter_incomplete:
             self.outliers_df = self.outliers_df[self.outliers_df['form_status'] == 'complete']
 
-
-# TODO: Custom rules class
-# from pyredcap.redcap_project import REDCapProject
-# class CustomRules:
-#
-#     def __init__(self, redcap_project: REDCapProject):
-#         self.forms: dict[str, DataFrame] = redcap_project.forms
-#         self.codebook: DataFrame = redcap_project.codebook
-#
-#     # USER DEFINE CUSTOM METHODS BELOW
-#     def custom_diag_comorb_cid(self) -> None:
-#         diag_comorb_df = pd.merge(
-#             self.forms['diagnostico'],
-#             self.forms['comorbidade'],
-#             on=['record_id']
-#         )
-#         diag_comorb_df['cid10_diagnostico'] = diag_comorb_df['doenca_cid10'].dropna().apply(
-#             lambda x: x.split(' - ')[1].strip())
-#         diag_equal_comorb_mask = diag_comorb_df['cid10_diagnostico'] == diag_comorb_df['cid10_comorbidade']
-#         invalid_records = diag_comorb_df[diag_equal_comorb_mask]['record_id'].tolist()
-#         if invalid_records:
-#             self.process_invalid_records(
-#                 self.forms['comorbidade'], 'cid10_comorbidade', invalid_records,
-#                 'CID10 Diagnóstico igual ao CID10 comorbidade')
+        logging.info('Outliers generated: %s', len(self.outliers_df))
+        logging.info('Top 10 fields:\n%s', self.outliers_df['field_name'].value_counts().nlargest(10).to_string())

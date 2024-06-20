@@ -180,3 +180,31 @@ class TransformerHandler:
                 return true
             return false
         return false
+
+    @staticmethod
+    def process_invalid_records(
+            df: DataFrame,
+            column: str,
+            invalid_records: list[str] | list[tuple[str, int]],
+            reason_desc: str
+    ) -> DataFrame:
+        # Check if list is with str
+        if isinstance(invalid_records[0], str):
+            invalid_record_mask = df['record_id'].isin(invalid_records)
+        else:
+            invalid_record_mask = df[['record_id', 'redcap_repeat_instance']].apply(tuple, axis=1).isin(invalid_records)
+
+        complete_column: str = df.filter(regex='_complete$').columns[-1]
+        cols_subset: list = ['record_id', 'redcap_data_access_group', 'redcap_repeat_instance',
+                             column, complete_column]
+        if 'redcap_repeat_instance' not in df.columns:
+            df['redcap_repeat_instance'] = np.nan
+
+        form_outliers: DataFrame = df[invalid_record_mask][cols_subset]
+        form_outliers['field_name'] = column
+        form_outliers['reason'] = reason_desc
+        form_outliers.rename(columns={column: 'current_value'}, inplace=True)
+        form_outliers.rename(columns={complete_column: 'form_status'}, inplace=True)
+
+        logging.info('Field %s: extracted %s invalid records', column, len(invalid_records))
+        return form_outliers
