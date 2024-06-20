@@ -1,3 +1,6 @@
+[MASTER]
+fail-under=9.0
+
 [FORMAT]
 max-line-length=120
 
