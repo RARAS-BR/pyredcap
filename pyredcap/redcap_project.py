@@ -166,7 +166,7 @@ class REDCapProject:
                 metadata=self.get_metadata(),
                 instructions=form_instructions
             )
-            self.update_forms({form_name: data_cleaning.df})
+            self.update_single_form(form_name, data_cleaning.df)
             self.update_outliers(data_cleaning.outliers)
 
     def _instance_dag(self):
@@ -194,6 +194,10 @@ class REDCapProject:
     def update_forms(self, forms: dict[str, DataFrame]):
         """Update forms attribute with new forms."""
         self.forms = forms
+
+    def update_single_form(self, form_name: str, form: DataFrame):
+        """Update a single form in the forms attribute."""
+        self.forms[form_name] = form
 
     def update_feature_map(self, feature_map: dict[str, list[str]]):
         """Update feature_map attribute with new feature_map."""
