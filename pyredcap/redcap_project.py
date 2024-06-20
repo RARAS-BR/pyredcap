@@ -7,7 +7,6 @@ import logging
 from io import StringIO
 from typing import Optional
 
-import requests
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -276,8 +275,6 @@ class REDCapProject:
             'record', type=file_type, format=file_format, records=records,
             fields=fields, forms=forms, rawOrLabel=raw_or_label, rawOrLabelHeaders=raw_or_label_headers,
             exportCheckboxLabel=export_checkbox_label, exportDataAccessGroups=export_data_access_groups)
-        if response.status_code != 200:
-            raise requests.HTTPError(response.text)
         self.df = pd.read_csv(StringIO(response.text), low_memory=False)
 
         # Add custom labels to loaded data
@@ -285,8 +282,6 @@ class REDCapProject:
             response = self.api.make_api_call(
                 'record', type=file_type, format=file_format, records=records, forms=forms,
                 fields=fields, rawOrLabel='label')
-            if response.status_code != 200:
-                raise requests.HTTPError(response.text)
 
             label_df = pd.read_csv(StringIO(response.text), low_memory=False)
 

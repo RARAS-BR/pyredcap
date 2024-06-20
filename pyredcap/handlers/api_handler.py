@@ -53,4 +53,9 @@ class APIHandler:
         response = requests.post(self.api_url, data=payload, timeout=300, verify=True)
         logging.info('HTTP Status: %s', response.status_code)
 
+        if response.status_code != 200:
+            logging.error("API call failed with status %s and response %s",
+                          response.status_code, response.text)
+            response.raise_for_status()
+
         return response
