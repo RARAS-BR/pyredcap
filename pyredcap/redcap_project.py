@@ -4,9 +4,12 @@ It includes methods for initializing the project, processing codebook, loading r
 """
 
 import logging
+import os
 from io import StringIO
-from typing import Optional
+from typing import Optional, Literal
 
+import json
+import yaml
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -363,3 +366,28 @@ class REDCapProject:
 
             return unmapped_df.to_dict(orient='records')
         return None
+
+    def to_csv(
+            self,
+            dir_path: str,
+            forms: str | list[str] = None,
+            makedir: bool = True,
+            metadata_format: Literal['yaml', 'json'] | None = 'yaml',
+    ) -> None:
+        # Check if dir_path exists
+        if makedir and not os.path.exists(dir_path):
+            os.makedirs(dir_path)
+        # Select all forms if none is provided
+        if forms is None:
+            forms = list(self.forms.keys())
+        # Cast to list if string
+        if isinstance(forms, str):
+            forms = [forms]
+        # Save each form as csv
+        for form in forms:
+            self.forms[form].to_csv(f'{dir_path}/{form}.csv', index=False)
+        # Save metadata
+        if metadata_format == 'yaml':
+            yaml.dump(self.get_metadata(), open(f'{dir_path}/metadata.yaml', 'w'))
+        elif metadata_format == 'json':
+            json.dump(self.get_metadata(), open(f'{dir_path}/metadata.json', 'w'))
