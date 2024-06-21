@@ -1,5 +1,5 @@
 # PyRedcap
-![Static Badge](https://img.shields.io/badge/version-0.0.2-1696d2?style=for-the-badge)
+![Static Badge](https://img.shields.io/badge/version-0.1.0-1696d2?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/build-passing-55b748?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/lynt-9.1-55b748?style=for-the-badge)
 ![Static Badge](https://img.shields.io/badge/coverage-100%25-55b748?style=for-the-badge)
