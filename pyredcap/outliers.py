@@ -46,7 +46,7 @@ class Outliers:
         self.custom_rules = custom_rules
         self.cols_to_validate: dict = {}
         self.outliers_df = pd.DataFrame(
-            columns=['record_id', 'redcap_data_access_group',
+            columns=['record_id', 'redcap_data_access_group', 'form_name',
                      'redcap_repeat_instance', 'field_name', 'current_value',
                      'form_status', 'reason'])
         self.th = TransformerHandler()
@@ -128,11 +128,12 @@ class Outliers:
             self,
             df: DataFrame,
             column: str,
+            form_name: str,
             invalid_records: list[str] | list[tuple[str, int]],
             reason_desc: str
     ) -> None:
         # Process invalid records into the outliers data frame
-        outliers = self.th.process_invalid_records(df, column, invalid_records, reason_desc)
+        outliers = self.th.process_invalid_records(df, column, form_name, invalid_records, reason_desc)
         # Check if both data frames are not empty
         if not self.outliers_df.empty and not outliers.empty:
             self.outliers_df = pd.concat([self.outliers_df, outliers], ignore_index=True)
@@ -150,6 +151,7 @@ class Outliers:
             self,
             df: DataFrame,
             column: str,
+            form_name: str,
             data_type: Literal['numeric', 'date']
     ) -> None:
         if data_type == 'numeric':
@@ -166,12 +168,13 @@ class Outliers:
         invalid_records = df.loc[~is_valid_type, 'record_id'].tolist()
 
         if invalid_records:
-            self.update_outliers_df(df, column, invalid_records, f'Dado inválido ({data_type})')
+            self.update_outliers_df(df, column, form_name, invalid_records, f'Dado inválido ({data_type})')
 
     def check_range(
             self,
             df: DataFrame,
             column: str,
+            form_name: str,
             data_type: Literal['numeric', 'date'],
             min_value: str = None,
             max_value: str = None
@@ -202,7 +205,7 @@ class Outliers:
 
         invalid_records = df.loc[~mask, 'record_id'].tolist()
         if invalid_records:
-            self.update_outliers_df(df, column, invalid_records,
+            self.update_outliers_df(df, column, form_name, invalid_records,
                                     f'Valor fora do intervalo permitido ({reason_desc})')
 
     def custom_outliers(self):
@@ -232,11 +235,11 @@ class Outliers:
 
                 # Check by field type
                 if column in self.cols_to_validate['numeric_cols']:
-                    self.check_dtype(form, column, 'numeric')
-                    self.check_range(form, column, 'numeric', field_info['min'], field_info['max'])
+                    self.check_dtype(form, column, form_name, 'numeric')
+                    self.check_range(form, column, form_name, 'numeric', field_info['min'], field_info['max'])
                 elif column in self.cols_to_validate['date_cols']:
-                    self.check_dtype(form, column, 'date')
-                    self.check_range(form, column, 'date', field_info['min'], field_info['max'])
+                    self.check_dtype(form, column, form_name, 'date')
+                    self.check_range(form, column, form_name, 'date', field_info['min'], field_info['max'])
 
         # Check for custom user defined rules
         if self.custom_rules:
@@ -256,4 +259,5 @@ class Outliers:
             self.outliers_df = self.outliers_df[self.outliers_df['form_status'] == 'complete']
 
         logging.info('Outliers generated: %s', len(self.outliers_df))
-        logging.info('Top 10 fields:\n%s', self.outliers_df['field_name'].value_counts().nlargest(10).to_string())
+        logging.info('Top 10 fields:\n%s',
+                     self.outliers_df['field_name'].value_counts().nlargest(10).to_string())
