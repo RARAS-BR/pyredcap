@@ -185,6 +185,7 @@ class TransformerHandler:
     def process_invalid_records(
             df: DataFrame,
             column: str,
+            form_name: str,
             invalid_records: list[str] | list[tuple[str, int]],
             reason_desc: str
     ) -> DataFrame:
@@ -202,6 +203,7 @@ class TransformerHandler:
 
         form_outliers: DataFrame = df[invalid_record_mask][cols_subset]
         form_outliers['field_name'] = column
+        form_outliers['form_name'] = form_name
         form_outliers['reason'] = reason_desc
         form_outliers.rename(columns={column: 'current_value'}, inplace=True)
         form_outliers.rename(columns={complete_column: 'form_status'}, inplace=True)
