@@ -20,6 +20,7 @@ class CustomRules(CustomRulesBase):
         return {
             'df': self.forms['comorbidade'],
             'column': 'cid10_comorbidade',
+            'form_name': 'comorbidade',
             'invalid_records': invalid_records,
             'reason_desc': 'CID10 Diagnóstico igual ao CID10 comorbidade'
         }
@@ -32,6 +33,7 @@ class CustomRules(CustomRulesBase):
         return {
             'df': self.forms['identificacao'],
             'column': 'cpf',
+            'form_name': 'identificacao',
             'invalid_records': invalid_records,
             'reason_desc': 'CPF invalidado pelo algoritmo de verificação'
         }
@@ -43,6 +45,7 @@ class CustomRules(CustomRulesBase):
         return {
             'df': self.forms['identificacao'],
             'column': 'cpf',
+            'form_name': 'identificacao',
             'invalid_records': invalid_records,
             'reason_desc': 'CPF em branco ou uso de missing data code'
         }
