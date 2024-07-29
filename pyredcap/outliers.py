@@ -183,7 +183,7 @@ class Outliers:
         if data_type == 'numeric':
             series = pd.to_numeric(df[column], errors='coerce').dropna()
         elif data_type == 'date':
-            series = pd.to_datetime(df[column], errors='coerce').dropna()
+            series = pd.to_datetime(df[column], format='%Y-%m-%d', errors='coerce').dropna()
         else:
             raise ValueError("data_type must be either 'numeric' or 'date'")
 
